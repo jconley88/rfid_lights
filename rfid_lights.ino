@@ -6,6 +6,13 @@
    * https://learn.sparkfun.com/tutorials/sparkfun-rfid-starter-kit-hookup-guide/example-project
 */
 #include <SoftwareSerial.h>
+#include <Adafruit_NeoPixel.h>
+
+#define WHITE                   0xEEEEEE
+#define RED			0xFF0000
+#define YELLOW			0xFFFF00
+#define GREEN			0x008000
+#define BLUE			0x0000FF
 
 // Changeable configuration
 const int dsa = 3;
@@ -15,23 +22,16 @@ const int DURATION_IN_SECONDS = 3;
 // WS2801 Light strip configuration
 int SDI = 7; //Red wire (not the red 5V wire!)
 int CKI = 6; //Green wire
-const int STRIP_LENGTH = 32; //32 LEDs on this strip
+int LED_DATA_PIN = 7;
+const int STRIP_LENGTH = 100;
 long strip_colors[STRIP_LENGTH];
 
 int ledPin = 13; //On board LED
 
 SoftwareSerial rSerial(8, 999); // RX, TX
-//SoftwareSerial sensor2Serial(7, 8); // RX, TX
-// For SparkFun's tags, we will receive 16 bytes on every
-// tag read, but throw four away. The 13th space will always
-// be 0, since proper strings in Arduino end with 0
-
-// These constants hold the total tag length (tagLen) and
-// the length of the part we want to keep (idLen),
-// plus the total number of tags we want to check against (kTags)
 const int tagLen = 16;
 const int idLen = 13;
-const int kTags = 1;
+const int kTags = 2;
 unsigned long left_time = 0;
 unsigned long right_time = 0;
 unsigned long time_diff = 0;
@@ -42,6 +42,7 @@ char knownTags[kTags][idLen] = {
 };
 
 char knownLeftTags[kTags][idLen] = {
+  "82003BA07D64",
   "82003C6FEA3B"
 };
 
@@ -50,25 +51,36 @@ char newTag[idLen];
 bool leftTag;
 bool keyPresent = false;
 
+Adafruit_NeoPixel leds = Adafruit_NeoPixel(STRIP_LENGTH, LED_DATA_PIN, NEO_GRB + NEO_KHZ800);
+
 void setup() {
-   Serial.println("Setup"); // Debug
-   // setup light strip
-   pinMode(SDI, OUTPUT);
-   pinMode(CKI, OUTPUT);
-   pinMode(ledPin, OUTPUT);
-   off();
-//   on(0xffff00);
-//   delay(2000);
-//   on(0xff0000);
-//   delay(2000);
-//   on(0x00ff00);
-//   delay(2000);
-//   on(0x0000ff);
-//   delay(2000);
-  
    // Start the hardware and software serial ports
    Serial.begin(9600);
    rSerial.begin(9600);
+   Serial.println("Setup"); // Debug
+   // setup light strip
+//   pinMode(SDI, OUTPUT);
+//   pinMode(CKI, OUTPUT);
+//   pinMode(ledPin, OUTPUT);
+    leds.begin();  // Call this to start up the LED strip.
+    off();
+    Serial.println("c");
+    on(0xCCCCCC);
+    delay(3000);
+    Serial.println("d");
+    on(0xDDDDDD);
+    delay(3000);
+    Serial.println("e");
+    on(0xEEEEEE);
+    delay(3000);
+    Serial.println("f");
+    on(0xFFFFFF);
+    delay(3000);
+    off();
+    flutter();
+    
+    off();
+  
 }
 
 int new_color;
@@ -106,21 +118,11 @@ void loop() {
     }
     
     if (leftTag && left_tag_read) {
-        on(0x00ff00);
-        delay(1000);
-        on(0x0000ff);
-        delay(1000);
-        off();
+        leftKeySuccess();
         keyPresent = true;
-        left_time = millis();
     } else if (!leftTag && right_tag_read) {
-        on(0xffff00);
-        delay(1000);
-        on(0xff0000);
-        delay(1000);
-        off();
+        rightKeySuccess();
         keyPresent = true;
-        right_time = millis();
     } else {
       flutter();
     }
@@ -130,14 +132,9 @@ void loop() {
     } else if (right_tag_read == true) {
           Serial.println("Known right tag read");      
     } else {
-      if (leftTag) {
-        Serial.print("Unknown tag! "); // Debug
-      } else {
-        Serial.print("Unknown tag! "); // Debug
-      }
         // This prints out unknown cards so you can add them to your knownTags as needed
-        
-        Serial.print(newTag);  // Debug
+        Serial.print("Unknown tag! "); // Debug
+        Serial.print(newTag);  // Debugsa
         Serial.print("\n\n");  // Debug
     }
     if (leftTag) {
@@ -145,30 +142,14 @@ void loop() {
     } else {
       Serial.println("On right sensor");      
     }
-    // If newTag matched any of the tags
-    // we checked against, total will be 1
-    if (right_time >= left_time) {
-      time_diff = right_time - left_time;
-    } else {
-      time_diff = left_time - right_time;
-    }
 
-    Serial.println("");
-    Serial.print("Last left read ");
+    Serial.print("\nLast left read ");
     Serial.println(left_time);
     Serial.print("Last right read ");
     Serial.println(right_time);
     Serial.print("Read diff ");
     Serial.println(time_diff);
     Serial.println("========================================");
-    
-//    if (keyPresent && time_diff < 3000) {
-//    if (keyPresent) {
-//      on(STRIP_COLOR);
-//      delay(DURATION_IN_SECONDS * 1000);
-//      off();
-//    }
-
   }
   //TODO The following make more sense as local variables.zs
   // Once newTag has been checked, fill it with zeroes
@@ -231,58 +212,48 @@ void read_tag(char* newTag) {
   }
 }
 
+void leftKeySuccess() {
+  temporary_on(GREEN, 1000);
+  temporary_on(BLUE, 1000);
+  off();
+}
+
+void rightKeySuccess() {
+  temporary_on(YELLOW, 1000);
+  temporary_on(RED, 1000);
+  off();
+}
+
 // Turns the lights on and off rapidly
 void flutter() {
-  for( int i = 0; i < 10; i++ ) {
-    on(0xffffffff);
+  int wait = 10;
+  for( int i = 0; i < 20; i++ ) {
+    on(WHITE);
+    delay(wait);
     off();
+    delay(wait);
   }
 }
 
 //Turns all leds the same color
 void on(long color) {
-    for(int x = 0 ; x < STRIP_LENGTH ; x++)
-      strip_colors[x] = color;
-    post_frame();
+    for(int i = 0 ; i < STRIP_LENGTH ; i++) {
+      leds.setPixelColor(i, color);  // Set just thiseas one
+    }
+    leds.show();
+}
+
+void temporary_on(long color, int wait) {
+  
 }
 
 //Turns all LEDS off
 void off(void) {
-    for(int x = 0 ; x < STRIP_LENGTH ; x++)
-      strip_colors[x] = 0;
-    post_frame();
-}
-
-//Takes the current strip color array and pushes it out
-void post_frame (void) {
-  //Each LED requires 24 bits of data
-  //MSB: R7, R6, R5..., G7, G6..., B7, B6... B0 
-  //Once the 24 bits have been delivered, the IC immediately relays these bits to its neighbor
-  //Pulling the clock low for 500us or more causes the IC to post the data.
-
-  for(int LED_number = 0 ; LED_number < STRIP_LENGTH ; LED_number++) {
-    long this_led_color = strip_colors[LED_number]; //24 bits of color data
-
-    for(byte color_bit = 23 ; color_bit != 255 ; color_bit--) {
-      //Feed color bit 23 first (red data MSB)
-      
-      digitalWrite(CKI, LOW); //Only change data when clock is low
-      
-      long mask = 1L << color_bit;
-      //The 1'L' forces the 1 to start as a 32 bit number, otherwise it defaults to 16-bit.
-      
-      if(this_led_color & mask) 
-        digitalWrite(SDI, HIGH);
-      else
-        digitalWrite(SDI, LOW);
-  
-      digitalWrite(CKI, HIGH); //Data is latched when clock goes high
-    }
+  for (int i=0; i<STRIP_LENGTH; i++)
+  {
+    leds.setPixelColor(i, 0);
   }
-
-  //Pull clock low to put strip into reset/post mode
-  digitalWrite(CKI, LOW);
-  delayMicroseconds(500); //Wait for 500us to go into reset
+  leds.show();
 }
 
 // This function steps through both newTag and one of the known
